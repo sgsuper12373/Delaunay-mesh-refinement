@@ -1,0 +1,30 @@
+*.i
+*.ii
+*.gpu
+*.ptx
+*.cubin
+*.fatbin
+
+# ---- Large datasets (keep locally / on cluster scratch, never commit) ----
+data/inputs/input/
+baselines/gDP2d/GPU_Constrained_Refine_2D/input/
+baselines/gDP2d/GPU_Constrained_Refine_2D/input_realworld/
+*_vertex.txt
+*_constraint.txt
+*.node
+*.ele
+*.off
+*.stl
+*.dat
+*.ply
+
+# ---- Build output ----
+build/
+**/build/
+*.o
+*.so
+*.a
+*.exe
+
+# ---- Editor settings ----
+.vscode/
