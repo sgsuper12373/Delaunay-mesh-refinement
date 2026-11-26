@@ -28,3 +28,6 @@ build/
 
 # ---- Editor settings ----
 .vscode/
+logs/cpu_baseline.log
+baselines/bin/
+baselines/output/
