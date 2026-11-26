@@ -7,5 +7,7 @@ bin/bin2poly: bin2poly.c | bin
 	$(CC) $(CFLAGS) -o $@ $<
 bin:
 	mkdir -p bin
+test: all
+	bin/triangle -pq20 tests/A.poly
 clean:
 	rm -f bin/triangle bin/bin2poly
