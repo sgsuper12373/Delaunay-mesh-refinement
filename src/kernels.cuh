@@ -38,7 +38,7 @@ __device__ inline Point vertex(const MeshView &m, int t, int i)
     return m.points[m.tris[t].v[i]];
 }
 
-// Kernel 1: find bad triangles
+// Kernel: find bad triangles
 
 __global__ void find_bad(MeshView m, int *bad, int *num_bad)
 {
@@ -53,4 +53,29 @@ __global__ void find_bad(MeshView m, int *bad, int *num_bad)
     int slot = atomicAdd(num_bad, 1);
     if (slot < MAX_BATCH)
         bad[slot] = t;
+}
+
+// Kernel: reset owners
+
+__global__ void reset_owners(int *owner, int n)
+{
+    int t = blockIdx.x * blockDim.x + threadIdx.x;
+    if (t < n)
+        owner[t] = INT_MAX;
+}
+
+// Kernel: claim triangles (lowest cavity id wins each one)
+
+__global__ void claim(const Cavity *cavities, int num, int *owner)
+{
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (id >= num || !cavities[id].valid)
+        return;
+
+    const Cavity &c = cavities[id];
+    for (int q = 0; q < c.num_tris; ++q)
+        atomicMin(&owner[c.tris[q]], id);
+    for (int j = 0; j < c.num_edges; ++j)
+        if (c.edge_out[j] >= 0)
+            atomicMin(&owner[c.edge_out[j]], id);
 }
