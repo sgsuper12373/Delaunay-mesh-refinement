@@ -1,5 +1,6 @@
 #pragma once
 #include "geometry.cuh"
+#include <cstdio>
 #include <map>
 #include <vector>
 
@@ -70,5 +71,17 @@ struct HostMesh {
       bad += min_angle_deg(points[t.v[0]], points[t.v[1]], points[t.v[2]]) <
              angle_deg;
     return bad;
+  }
+
+  bool save_obj(const char *path) const {
+    FILE *f = fopen(path, "w");
+    if (!f)
+        return false;
+    for (const Point &p : points)
+        fprintf(f, "v %.17g %.17g 0\n", p.x, p.y);
+    for (const Triangle &t : tris)
+        fprintf(f, "f %d %d %d\n", t.v[0] + 1, t.v[1] + 1, t.v[2] + 1);
+    fclose(f);
+    return true;
   }
 };
