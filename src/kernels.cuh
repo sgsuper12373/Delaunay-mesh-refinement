@@ -77,7 +77,7 @@ __global__ void claim(const Cavity *cavities, int num, int *owner) {
 
 // Walk across the edge opposite each obtuse corner until the triangle has none
 // or we hit a boundary edge (a segment)
-_device_ inline bool pick_element(const MeshView &m, int t, Element *e) {
+__device__ inline bool pick_element(const MeshView &m, int t, Element *e) {
   *e = Element{t, -1};
   for (int step = 0; step < MAX_WALK; ++step) {
     int k = -1;
@@ -104,7 +104,7 @@ _device_ inline bool pick_element(const MeshView &m, int t, Element *e) {
 }
 
 // Returns false if the center encroaches on a segment; *e becomes that segment
-_device_ bool grow(const MeshView &m, Cavity &c, Element *e, bool *too_big) {
+__device__ bool grow(const MeshView &m, Cavity &c, Element *e, bool *too_big) {
   double r2;
   circle(m, *e, &c.center, &r2);
   c.split = *e;
@@ -139,7 +139,7 @@ _device_ bool grow(const MeshView &m, Cavity &c, Element *e, bool *too_big) {
   return true;
 }
 
-_global_ void build_cavities(MeshView m, const int *bad, int num_bad,
+__global__ void build_cavities(MeshView m, const int *bad, int num_bad,
                              Cavity *cavities) {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
   if (id >= num_bad)
@@ -195,7 +195,7 @@ _global_ void build_cavities(MeshView m, const int *bad, int num_bad,
 }
 
 // retriangulate the cavities that won
-_global_ void retriangulate(MeshView m, const Cavity *cavities, int num,
+__global__ void retriangulate(MeshView m, const Cavity *cavities, int num,
                             const int *owner, int *inserted) {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
   if (id >= num || !cavities[id].valid)
