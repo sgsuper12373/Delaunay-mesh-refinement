@@ -86,6 +86,10 @@ __host__ __device__ inline double min_angle_deg(Point a, Point b, Point c)
         q = bc;
     }
 
+    // angle undefined so report 0 so it counts as bad
+    if (p * q == 0.0)
+        return 0.0;
+
     // Law of cosines
     double cosine = (p + q - s) / (2.0 * sqrt(p * q));
     cosine = fmin(1.0, fmax(-1.0, cosine)); // NOTE: clamp as cosine might be slightly incorrect
