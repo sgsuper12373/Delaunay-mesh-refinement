@@ -73,7 +73,13 @@ inline RefineStats refine(HostMesh &mesh, int max_points, int max_tris)
             break;
 
         // Fix a batch
-        int batch = std::min(stats.bad_left, MAX_BATCH);
+        int room = std::min(max_points - num_points, (max_tris - num_tris) / 2);
+        int batch = std::min({stats.bad_left, MAX_BATCH, room});
+        if (batch <= 0)
+        {
+            stats.out_of_room = true;
+            break;
+        }
         int batch_blocks = (batch + THREADS - 1) / THREADS;
 
         CUDA_CHECK(cudaMemset(counter, 0, sizeof(int)));
@@ -94,14 +100,20 @@ inline RefineStats refine(HostMesh &mesh, int max_points, int max_tris)
         printf("round %3d: %7d bad, %6d inserted, %8d triangles\n",
                stats.rounds, stats.bad_left, added, num_tris);
 
-        stats.out_of_room = num_points > max_points || num_tris > max_tris;
-        if (stats.out_of_room || added == 0 || stats.rounds == MAX_ROUNDS)
+        if (added == 0 || stats.rounds == MAX_ROUNDS)
             break;
     }
 
+    // Final bad count
+    int final_blocks = (num_tris + THREADS - 1) / THREADS;
+    CUDA_CHECK(cudaMemset(counter, 0, sizeof(int)));
+    find_bad<<<final_blocks, THREADS>>>(m, bad, counter);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaMemcpy(&stats.bad_left, counter, sizeof(int), cudaMemcpyDeviceToHost));
+
     // Copy back to host
-    mesh.points.resize(std::min(num_points, max_points));
-    mesh.tris.resize(std::min(num_tris, max_tris));
+    mesh.points.resize(num_points);
+    mesh.tris.resize(num_tris);
     CUDA_CHECK(cudaMemcpy(mesh.points.data(), m.points, sizeof(Point) * mesh.points.size(), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(mesh.tris.data(), m.tris, sizeof(Triangle) * mesh.tris.size(), cudaMemcpyDeviceToHost));
 
