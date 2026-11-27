@@ -193,3 +193,64 @@ _global_ void build_cavities(MeshView m, const int *bad, int num_bad,
   int expected = c.num_tris + (e.is_segment() ? 1 : 2);
   c.valid = (c.num_edges == expected);
 }
+
+// retriangulate the cavities that won
+_global_ void retriangulate(MeshView m, const Cavity *cavities, int num,
+                            const int *owner, int *inserted) {
+  int id = blockIdx.x * blockDim.x + threadIdx.x;
+  if (id >= num || !cavities[id].valid)
+    return;
+
+  const Cavity &c = cavities[id];
+
+  // Only go on if this cavity won every triangle it claimed
+  for (int q = 0; q < c.num_tris; ++q)
+    if (owner[c.tris[q]] != id)
+      return;
+  for (int j = 0; j < c.num_edges; ++j)
+    if (c.edge_out[j] >= 0 && owner[c.edge_out[j]] != id)
+      return;
+
+  int p = atomicAdd(m.num_points, 1);
+  int extra = atomicAdd(m.num_tris, c.num_edges - c.num_tris);
+  if (p >= m.max_points || extra + c.num_edges - c.num_tris > m.max_tris)
+    return;
+  m.points[p] = c.center;
+
+  int slot[MAX_EDGES];
+  for (int j = 0; j < c.num_edges; ++j)
+    slot[j] = (j < c.num_tris) ? c.tris[j] : extra + (j - c.num_tris);
+
+  // One new triangle per boundary edge, fanned around p
+  for (int j = 0; j < c.num_edges; ++j) {
+    int a = c.edge_a[j];
+    int b = c.edge_b[j];
+
+    Triangle t;
+    t.v[0] = a;
+    t.v[1] = b;
+    t.v[2] = p;
+    t.nbr[2] = c.edge_out[j];
+    t.nbr[0] = t.nbr[1] = -1;
+
+    for (int k = 0; k < c.num_edges; ++k) {
+      if (c.edge_a[k] == b)
+        t.nbr[0] = slot[k];
+      if (c.edge_b[k] == a)
+        t.nbr[1] = slot[k];
+    }
+
+    m.tris[slot[j]] = t;
+
+    // Point the outside triangle back at the new one
+    int out = c.edge_out[j];
+    if (out >= 0) {
+      Triangle &o = m.tris[out];
+      for (int i = 0; i < 3; ++i)
+        if (o.v[(i + 1) % 3] == b && o.v[(i + 2) % 3] == a)
+          o.nbr[i] = slot[j];
+    }
+  }
+
+  atomicAdd(inserted, 1);
+}
