@@ -35,6 +35,35 @@ __device__ inline Point vertex(const MeshView &m, int t, int i) {
   return m.points[m.tris[t].v[i]];
 }
 
+__device__ inline bool contains(const int *list, int n, int x) {
+  for (int i = 0; i < n; ++i)
+    if (list[i] == x)
+      return true;
+  return false;
+}
+
+// circle(e) of the pseudocode: its center and squared radius.
+__device__ inline void circle(const MeshView &m, Element e, Point *center,
+                              double *r2) {
+  if (e.is_segment()) {
+    Point a = vertex(m, e.tri, (e.edge + 1) % 3),
+          b = vertex(m, e.tri, (e.edge + 2) % 3);
+    *center = Point{(a.x + b.x) / 2, (a.y + b.y) / 2};
+    *r2 = dist2(a, b) / 4;
+  } else {
+    *center = circumcenter(vertex(m, e.tri, 0), vertex(m, e.tri, 1),
+                           vertex(m, e.tri, 2));
+    *r2 = dist2(*center, vertex(m, e.tri, 0));
+  }
+}
+
+__device__ inline bool inside(const MeshView &m, Point p, Element e) {
+  Point center;
+  double r2;
+  circle(m, e, &center, &r2);
+  return dist2(p, center) <= r2;
+}
+
 // Kernel: find bad triangles
 
 __global__ void find_bad(MeshView m, int *bad, int *num_bad) {
@@ -140,7 +169,7 @@ __device__ bool grow(const MeshView &m, Cavity &c, Element *e, bool *too_big) {
 }
 
 __global__ void build_cavities(MeshView m, const int *bad, int num_bad,
-                             Cavity *cavities) {
+                               Cavity *cavities) {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
   if (id >= num_bad)
     return;
@@ -152,7 +181,8 @@ __global__ void build_cavities(MeshView m, const int *bad, int num_bad,
   if (!pick_element(m, bad[id], &e))
     return;
 
-  // One retry is allowed: growing can switch the target from a triangle to a segment
+  // One retry is allowed: growing can switch the target from a triangle to a
+  // segment
   bool too_big = false;
   if (!grow(m, c, &e, &too_big) && !grow(m, c, &e, &too_big))
     return;
@@ -196,7 +226,7 @@ __global__ void build_cavities(MeshView m, const int *bad, int num_bad,
 
 // retriangulate the cavities that won
 __global__ void retriangulate(MeshView m, const Cavity *cavities, int num,
-                            const int *owner, int *inserted) {
+                              const int *owner, int *inserted) {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
   if (id >= num || !cavities[id].valid)
     return;
