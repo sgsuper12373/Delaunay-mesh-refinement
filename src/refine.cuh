@@ -31,7 +31,13 @@ inline RefineStats refine(HostMesh &mesh, int max_points, int max_tris)
     int num_points = mesh.points.size();
     int num_tris = mesh.tris.size();
 
-    // AllocateDownload (counts can exceed capacity)
+    if (num_points > max_points || num_tris > max_tris)
+    {
+        fprintf(stderr, "Input mesh exceeds capacity\n");
+        exit(1);
+    }
+
+    // Allocate
     MeshView m{};
     m.max_points = max_points;
     m.max_tris = max_tris;
